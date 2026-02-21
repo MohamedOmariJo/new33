@@ -832,8 +832,54 @@ def main():
                         
                         with col_action3:
                             if st.button("🤖 تحليل متقدم", key=f"analyze_{i}"):
-                                # تحليل متعمق
-                                pass  # سيتم تنفيذها
+                                analysis = analyzer.get_ticket_analysis(ticket)
+                                st.markdown("---")
+                                st.markdown("#### 🔍 التحليل المفصل للتذكرة")
+
+                                r1c1, r1c2, r1c3 = st.columns(3)
+                                with r1c1:
+                                    st.markdown("**📊 المعلومات الأساسية**")
+                                    st.write(f"• **المجموع الكلي:** {analysis['basic']['sum']}")
+                                    st.write(f"• **الأرقام الفردية:** {analysis['basic']['odd']} من {len(ticket)}")
+                                    st.write(f"• **الأرقام الزوجية:** {analysis['basic']['even']} من {len(ticket)}")
+                                    st.write(f"• **أزواج متتالية:** {analysis['basic']['consecutive']}")
+                                    st.write(f"• **ظلال (آحاد مشتركة):** {analysis['basic']['shadows']}")
+                                    st.write(f"• **عرض النطاق:** {analysis['basic']['range_width']} (الفرق بين أكبر وأصغر رقم)")
+                                    st.write(f"• **متوسط الفجوة بين الأرقام:** {analysis['basic']['avg_spacing']:.1f}")
+                                with r1c2:
+                                    st.markdown("**🌡️ تصنيف الأرقام**")
+                                    st.write(f"• **أرقام ساخنة 🔴:** {analysis['classification']['hot_count']} (ظهرت كثيراً في السحوبات الأخيرة)")
+                                    st.write(f"• **أرقام باردة 🔵:** {analysis['classification']['cold_count']} (ظهرت قليلاً مؤخراً)")
+                                    st.write(f"• **أرقام محايدة ⚪:** {analysis['classification']['neutral_count']} (ظهورها طبيعي)")
+                                    st.write(f"• **تطابق مع آخر سحب:** {analysis['classification']['last_match']} رقم")
+                                with r1c3:
+                                    st.markdown("**📈 الإحصاءات التحليلية**")
+                                    st.write(f"• **متوسط تكرار الأرقام:** {analysis['statistical']['avg_frequency']:.1f} مرة")
+                                    st.write(f"• **انحراف التكرار:** {analysis['statistical']['freq_std']:.1f} (كلما قل كان أكثر توازناً)")
+                                    st.write(f"• **درجة التنوع:** {analysis['statistical']['diversity_score']:.2f} / 1.0 (1.0 = تنوع كامل)")
+                                    st.write(f"• **درجة التوازن:** {analysis['statistical']['balance_score']:.2f} / 1.0 (1.0 = توزيع مثالي)")
+
+                                r2c1, r2c2 = st.columns(2)
+                                with r2c1:
+                                    st.markdown("**🔬 التحليل المتقدم**")
+                                    st.write(f"• **الأرقام الأولية:** {analysis['advanced']['prime_count']} (أرقام لا تقبل القسمة إلا على نفسها والواحد)")
+                                    st.write(f"• **تعقيد النمط:** {analysis['advanced']['pattern_complexity']:.2f} / 1.0 (كلما ارتفع كان أكثر تشتتاً)")
+                                    st.write(f"• **تجميع الأرقام:** {analysis['advanced']['cluster_score']:.2f} / 1.0 (كلما ارتفع كان الأرقام متقاربة)")
+                                    decade_dist = analysis['advanced']['decade_distribution']
+                                    st.write(f"• **توزيع العشرات:** {decade_dist} (كم رقم في كل نطاق 1-8, 9-16, 17-24, 25-32)")
+                                with r2c2:
+                                    quality = analysis['quality_score']
+                                    if quality >= 8:
+                                        q_label = "ممتاز 🌟"
+                                    elif quality >= 6:
+                                        q_label = "جيد جداً ✅"
+                                    elif quality >= 4:
+                                        q_label = "مقبول ⚠️"
+                                    else:
+                                        q_label = "ضعيف ❌"
+                                    st.markdown("**⭐ تقييم التذكرة**")
+                                    st.metric("درجة الجودة الإجمالية", f"{quality}/10  {q_label}")
+                                    st.caption("الدرجة تعتمد على التوازن بين الساخن والبارد، التنوع، والتوزيع التاريخي")
             else:
                 st.markdown('<div class="info-card">', unsafe_allow_html=True)
                 st.info("👈 استخدم النموذج على اليسار لتوليد التذاكر")
@@ -1161,27 +1207,70 @@ def main():
         with tab_analysis1:
             st.markdown("### 🗺️ خرائط حرارية متقدمة")
             
+            # ── شرح الرسم ──
+            st.info("""
+**📖 كيف تقرأ هذا الرسم؟**
+
+هذا رسم ثلاثي الأبعاد يعرض **مدى تكرار كل رقم** في تاريخ السحوبات.
+- **المحور الأفقي (العمود والصف):** يمثل الأرقام من 1 إلى 32، مرتبة في شبكة 4×8.
+- **المحور الرأسي (الارتفاع):** كلما ارتفع العمود ← كلما ظهر الرقم أكثر في السحوبات.
+- **اللون الأحمر:** أعلى تكرار (رقم ساخن جداً).
+- **اللون الأزرق:** أقل تكرار (رقم بارد).
+
+**💡 نصيحة:** الأرقام ذات الأعمدة الطويلة هي الأكثر ظهوراً تاريخياً.
+            """)
+
             # خريطة حرارية 3D
             heatmap_data = np.zeros((4, 8))
             for i in range(32):
                 row_idx, col_idx = divmod(i, 8)
                 heatmap_data[row_idx, col_idx] = analyzer.freq.get(i + 1, 0)
             
-            fig_3d = go.Figure(data=[go.Surface(z=heatmap_data)])
+            fig_3d = go.Figure(data=[go.Surface(z=heatmap_data, colorscale='RdBu_r')])
             fig_3d.update_layout(
-                title='خريطة حرارية ثلاثية الأبعاد لتكرار الأرقام',
+                title='خريطة حرارية ثلاثية الأبعاد لتكرار الأرقام (الارتفاع = عدد مرات الظهور)',
                 scene=dict(
-                    xaxis_title='العمود',
-                    yaxis_title='الصف',
-                    zaxis_title='التكرار'
+                    xaxis_title='العمود (الأرقام 1-8 لكل صف)',
+                    yaxis_title='الصف (صف 1: أرقام 1-8، صف 4: أرقام 25-32)',
+                    zaxis_title='عدد مرات الظهور'
                 )
             )
             
             st.plotly_chart(fig_3d, use_container_width=True)
+            
+            # ── جدول ملخص ──
+            freq_sorted = sorted(analyzer.freq.items(), key=lambda x: x[1], reverse=True)
+            top5 = freq_sorted[:5]
+            bottom5 = freq_sorted[-5:]
+            col_top, col_bot = st.columns(2)
+            with col_top:
+                st.markdown("**🔴 أكثر 5 أرقام ظهوراً (الأعلى في الرسم)**")
+                for num, fr in top5:
+                    st.write(f"• الرقم **{num}** ← ظهر **{fr}** مرة")
+            with col_bot:
+                st.markdown("**🔵 أقل 5 أرقام ظهوراً (الأدنى في الرسم)**")
+                for num, fr in bottom5:
+                    st.write(f"• الرقم **{num}** ← ظهر **{fr}** مرة")
         
         with tab_analysis2:
             st.markdown("### ⏱️ تحليل الفجوات والأنماط الزمنية")
-            
+
+            st.info("""
+**📖 كيف تقرأ هذا الرسم؟**
+
+يوضح هذا الرسم **كم سحباً يمر بين كل ظهور وظهور** لكل رقم.
+- **المحور الأفقي:** أرقام اليانصيب من 1 إلى 32.
+- **المحور الرأسي (avg_gap):** متوسط عدد السحوبات بين ظهور الرقم والظهور التالي له.
+  - الرقم في الأعلى → يظهر بشكل متقطع (فجوات طويلة بين ظهوراته).
+  - الرقم في الأسفل → يظهر بشكل متكرر ومنتظم (فجوات قصيرة).
+- **حجم الدائرة:** الفجوة الأطول التي مرت على هذا الرقم دون ظهور.
+- **لون الدائرة:** مدى انتظام الظهور:
+  - 🔴 أحمر = ظهوره غير منتظم (يظهر أحياناً بعد 2 سحب وأحياناً بعد 20).
+  - 🔵 أزرق = ظهوره منتظم ومتوقع.
+
+**💡 نصيحة:** الأرقام في الأسفل ذات اللون الأزرق هي الأكثر انتظاماً وقد تكون الأجدر بالاختيار.
+            """)
+
             # تحليل الفجوات بين الظهورات
             gap_analysis = []
             for num in range(1, 33):
@@ -1190,10 +1279,10 @@ def main():
                     gaps = np.diff(appearances)
                     gap_analysis.append({
                         'number': num,
-                        'avg_gap': np.mean(gaps),
-                        'max_gap': max(gaps),
-                        'last_gap': appearances[-1] - appearances[-2] if len(appearances) > 1 else 0,
-                        'consistency': np.std(gaps) / np.mean(gaps) if np.mean(gaps) > 0 else 0
+                        'avg_gap': round(float(np.mean(gaps)), 2),
+                        'max_gap': int(max(gaps)),
+                        'last_gap': int(appearances[-1] - appearances[-2]) if len(appearances) > 1 else 0,
+                        'consistency': round(float(np.std(gaps) / np.mean(gaps)), 3) if np.mean(gaps) > 0 else 0
                     })
             
             gap_df = pd.DataFrame(gap_analysis)
@@ -1204,12 +1293,33 @@ def main():
                 y='avg_gap',
                 size='max_gap',
                 color='consistency',
-                hover_data=['last_gap'],
-                title='تحليل الفجوات بين الظهورات',
+                hover_data=['last_gap', 'max_gap', 'consistency'],
+                hover_name='number',
+                title='تحليل الفجوات — كلما انخفض الرقم في الرسم كلما ظهر أكثر تكراراً',
+                labels={
+                    'number': 'رقم اليانصيب',
+                    'avg_gap': 'متوسط الفجوة (عدد السحوبات بين الظهورات)',
+                    'consistency': 'عدم الانتظام (أحمر=غير منتظم، أزرق=منتظم)',
+                    'max_gap': 'أطول غياب',
+                    'last_gap': 'آخر فجوة'
+                },
                 color_continuous_scale='RdBu_r'
             )
-            
+            fig_gaps.update_traces(marker=dict(line=dict(width=1, color='white')))
             st.plotly_chart(fig_gaps, use_container_width=True)
+
+            # ── ملخص نصي
+            if not gap_df.empty:
+                most_regular = gap_df.loc[gap_df['consistency'].idxmin()]
+                least_regular = gap_df.loc[gap_df['consistency'].idxmax()]
+                long_absent = gap_df.loc[gap_df['last_gap'].idxmax()]
+                col_g1, col_g2, col_g3 = st.columns(3)
+                with col_g1:
+                    st.success(f"✅ **الأكثر انتظاماً:** الرقم **{int(most_regular['number'])}**\n\nمتوسط الفجوة: {most_regular['avg_gap']} سحب")
+                with col_g2:
+                    st.warning(f"⚠️ **الأكثر تقلباً:** الرقم **{int(least_regular['number'])}**\n\nظهوره غير متوقع")
+                with col_g3:
+                    st.error(f"⏳ **الأطول غياباً الآن:** الرقم **{int(long_absent['number'])}**\n\nلم يظهر منذ {int(long_absent['last_gap'])} سحب")
         
         with tab_analysis3:
             st.markdown("### 📊 إحصائيات متقدمة")
@@ -1219,23 +1329,29 @@ def main():
             with col_stat1:
                 # توزيع المجاميع
                 sums = [sum(nums) for nums in df['numbers']]
+                avg_sum = np.mean(sums)
                 
                 fig_sums = px.histogram(
                     x=sums,
                     nbins=30,
-                    title='توزيع مجموع الأرقام',
-                    labels={'x': 'المجموع', 'y': 'التكرار'},
+                    title='توزيع مجموع الأرقام — الخط الأحمر = المتوسط التاريخي',
+                    labels={'x': 'مجموع الأرقام الستة', 'y': 'عدد السحوبات'},
                     color_discrete_sequence=['#667eea']
                 )
                 
                 fig_sums.add_vline(
-                    x=np.mean(sums),
+                    x=avg_sum,
                     line_dash="dash",
                     line_color="red",
-                    annotation_text=f"المتوسط: {np.mean(sums):.1f}"
+                    annotation_text=f"المتوسط: {avg_sum:.1f}"
                 )
                 
                 st.plotly_chart(fig_sums, use_container_width=True)
+                st.caption(f"""
+**📖 شرح الرسم:** كل عمود يمثل عدد السحوبات التي كان مجموع أرقامها ضمن نطاق معين.
+الخط الأحمر المتقطع = المتوسط التاريخي ({avg_sum:.0f}).
+**💡 نصيحة:** اختر تذاكر مجموعها قريب من المتوسط ({avg_sum:.0f}±20) لأنها الأكثر شيوعاً تاريخياً.
+                """)
             
             with col_stat2:
                 # توزيع الأنماط
@@ -1252,27 +1368,51 @@ def main():
                 fig_patterns = px.scatter_matrix(
                     patterns_df,
                     dimensions=['odd', 'consecutive', 'decades'],
-                    title='علاقة الأنماط المختلفة',
+                    title='علاقة الأنماط — كل نقطة = سحب واحد',
+                    labels={
+                        'odd': 'عدد الفردي',
+                        'consecutive': 'عدد المتتاليات',
+                        'decades': 'عدد العشرات المختلفة'
+                    },
                     color=patterns_df['odd'],
                     color_continuous_scale='Viridis'
                 )
-                
+                fig_patterns.update_traces(marker=dict(size=3, opacity=0.5))
                 st.plotly_chart(fig_patterns, use_container_width=True)
+
+                st.caption("""
+**📖 شرح رسم "علاقة الأنماط":**
+كل نقطة = سحب واحد من تاريخ السحوبات.
+- **المحور odd:** عدد الأرقام الفردية في ذلك السحب (0-6).
+- **المحور consecutive:** عدد أزواج الأرقام المتتالية (مثلاً 5,6 = زوج متتالي).
+- **المحور decades:** عدد العشرات المختلفة في السحب (أرقام 1-8، 9-16، 17-24، 25-32).
+تجمع النقاط في منطقة محددة يعني أن تلك القيم الأكثر شيوعاً.
+                """)
         
         with tab_analysis4:
             st.markdown("### 🔗 تحليل العلاقات والارتباطات")
+
+            st.info("""
+**📖 كيف تقرأ رسم "العلاقات بين الأرقام"؟**
+
+يعرض هذا الرسم **أي الأرقام تظهر معاً في نفس السحب بشكل متكرر**.
+- **المحور الأفقي (الرقم الأول) والمحور الرأسي (الرقم الثاني):** كل نقطة تمثل زوجاً من الأرقام.
+- **حجم الدائرة:** كلما كانت الدائرة أكبر ← ظهر هذان الرقمان معاً أكثر.
+- **لون الدائرة:** اللون الأصفر الساطع = أعلى ارتباط. اللون الداكن = ارتباط أقل.
+
+**💡 نصيحة:** إذا وجدت زوجاً كبيراً ومضيئاً، فهذان الرقمان "رفاق" تاريخياً ويميلان للظهور معاً.
+            """)
             
             # مصفوفة الارتباط بين الأرقام
             correlation_data = []
             for i in range(1, 33):
                 for j in range(i+1, 33):
-                    # حساب عدد المرات التي يظهر فيها الرقمان معاً
                     count_together = sum(1 for nums in df['numbers'] if i in nums and j in nums)
                     correlation_data.append({
                         'num1': i,
                         'num2': j,
                         'together': count_together,
-                        'correlation': count_together / len(df) if len(df) > 0 else 0
+                        'correlation': round(count_together / len(df), 4) if len(df) > 0 else 0
                     })
             
             correlation_df = pd.DataFrame(correlation_data)
@@ -1284,13 +1424,26 @@ def main():
                 y='num2',
                 size='together',
                 color='correlation',
-                hover_data=['together'],
-                title='أقوى 20 علاقة بين الأرقام',
-                labels={'num1': 'الرقم الأول', 'num2': 'الرقم الثاني'},
+                hover_data=['together', 'correlation'],
+                hover_name=top_correlations.apply(lambda r: f"{int(r['num1'])} + {int(r['num2'])}", axis=1),
+                title='أقوى 20 علاقة بين الأرقام — الدائرة الأكبر = أكثر ظهوراً معاً',
+                labels={
+                    'num1': 'الرقم الأول',
+                    'num2': 'الرقم الثاني',
+                    'together': 'ظهرا معاً (مرة)',
+                    'correlation': 'نسبة الظهور المشترك'
+                },
                 color_continuous_scale='Hot'
             )
-            
+            fig_corr.update_traces(marker=dict(line=dict(width=1, color='white')))
             st.plotly_chart(fig_corr, use_container_width=True)
+
+            # ── ملخص نصي للأزواج الأقوى
+            st.markdown("**🔗 أقوى 5 أزواج تاريخية:**")
+            top5_pairs = correlation_df.nlargest(5, 'together')
+            for _, row in top5_pairs.iterrows():
+                pct = row['correlation'] * 100
+                st.write(f"• الرقم **{int(row['num1'])}** مع الرقم **{int(row['num2'])}** → ظهرا معاً **{int(row['together'])}** مرة ({pct:.1f}% من السحوبات)")
     
     # ==================== TAB 6: المحفظة الذكية ====================
     with tabs[5]:
@@ -1417,8 +1570,31 @@ def main():
                     
                     with col_action2:
                         if st.button(f"📊 تحليل متقدم", key=f"detail_{idx}", use_container_width=True):
-                            # عرض تحليل مفصل
-                            st.json(analysis, expanded=False)
+                            st.markdown("---")
+                            st.markdown(f"#### 🔍 تحليل التذكرة #{idx}")
+                            pc1, pc2, pc3 = st.columns(3)
+                            with pc1:
+                                st.markdown("**📊 الأساسيات**")
+                                st.write(f"• المجموع: **{analysis['basic']['sum']}**")
+                                st.write(f"• فردي / زوجي: **{analysis['basic']['odd']} / {analysis['basic']['even']}**")
+                                st.write(f"• متتاليات: **{analysis['basic']['consecutive']}**")
+                                st.write(f"• ظلال: **{analysis['basic']['shadows']}**")
+                                st.write(f"• عرض النطاق: **{analysis['basic']['range_width']}**")
+                            with pc2:
+                                st.markdown("**🌡️ التصنيف**")
+                                st.write(f"• ساخنة 🔴: **{analysis['classification']['hot_count']}** أرقام")
+                                st.write(f"• باردة 🔵: **{analysis['classification']['cold_count']}** أرقام")
+                                st.write(f"• محايدة ⚪: **{analysis['classification']['neutral_count']}** أرقام")
+                                st.write(f"• تطابق آخر سحب: **{analysis['classification']['last_match']}** أرقام")
+                            with pc3:
+                                st.markdown("**⭐ التقييم**")
+                                q = analysis['quality_score']
+                                q_lbl = "ممتاز 🌟" if q>=8 else "جيد ✅" if q>=6 else "مقبول ⚠️"
+                                st.metric("الجودة", f"{q}/10")
+                                st.write(f"• التنوع: **{analysis['statistical']['diversity_score']:.2f}** / 1.0")
+                                st.write(f"• التوازن: **{analysis['statistical']['balance_score']:.2f}** / 1.0")
+                                st.write(f"• التعقيد: **{analysis['advanced']['pattern_complexity']:.2f}** / 1.0")
+                                st.caption(q_lbl)
     
     # ==================== TAB 7: الإعدادات والأداء ====================
     with tabs[6]:
